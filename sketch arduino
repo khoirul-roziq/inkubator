@@ -1,0 +1,133 @@
+#include <Arduino_FreeRTOS.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <DHT.h>
+
+uint8_t pinDht = A0;
+uint8_t pinReLamp = 2;
+uint8_t pinReFan = 3;
+uint8_t pinReHum = 4;
+
+// Deklarasi batas Temperature
+const int tempUp = 40;
+const int tempDown = 30;
+
+// Deklarasi batas Kelembapan
+const int humUp = 50;
+const int humDown = 30;
+const float humMid = (humUp + humDown) / 2;
+
+float temp, humidy;
+
+#define dhtType DHT11
+DHT dht(pinDht, dhtType);
+
+// Definisi Task Handler
+TaskHandle_t TaskTemp_Handler;
+TaskHandle_t TaskHumidy_Handler;
+TaskHandle_t TaskMotion_Handler;
+TaskHandle_t TaskData_Handler;
+
+// Definisi Task
+void TaskTemp( void *pvParameters );
+void TaskHumidy( void *pvParameters );
+void TaskMotion( void *pvParameters );
+void TaskData( void *pvParameters );
+
+LiquidCrystal_I2C lcd( 0x27,16,2 );
+
+void setup() {
+  pinMode(8, OUTPUT);
+  
+  pinMode( pinReLamp, OUTPUT );
+  pinMode( pinReFan, OUTPUT );
+  pinMode( pinReHum, OUTPUT );
+  pinMode( pinDht, INPUT );
+  
+  Serial.begin( 9600 );
+  dht.begin();
+  lcd.init();
+  lcd.backlight();
+  
+  
+  dht.begin();
+
+  while( !Serial );
+  
+  xTaskCreate( TaskTemp, "Temperature", 128, NULL, 1, &TaskTemp_Handler );
+  xTaskCreate( TaskHumidy, "Humidy", 128, NULL, 1, &TaskHumidy_Handler );
+  xTaskCreate( TaskMotion, "Motion", 128, NULL, 1, &TaskMotion_Handler );
+  xTaskCreate( TaskData, "Data", 128, NULL, 2, &TaskData_Handler );
+    
+
+  digitalWrite(pinReLamp, HIGH);
+  digitalWrite(pinReFan, LOW);
+  digitalWrite(pinReHum, LOW);
+}
+
+
+void loop() {}
+
+
+void TaskTemp( void *pvParameters ) {
+  (void) pvParameters;
+  digitalWrite(8, HIGH);
+  while(true) {
+    
+    temp = dht.readTemperature();
+  
+    if( temp > tempUp ) {
+      digitalWrite(pinReLamp, LOW);
+    } else if( temp < tempDown ) {
+      digitalWrite(pinReLamp, HIGH);
+    }
+  }
+
+  vTaskDelay(1);
+}
+
+void TaskHumidy( void *pvParameters ) {
+  (void) pvParameters;
+  
+  while(true) {
+
+    humidy = dht.readHumidity();
+    
+    if( humidy >= humUp ) {
+      digitalWrite(pinReFan, HIGH);
+    } else if( humidy <= humMid && humidy > humDown ) {
+      digitalWrite(pinReFan, LOW);
+    }
+  
+    if( humidy <= humDown ) {
+      digitalWrite(pinReHum, HIGH);
+    } else if ( humidy > humMid && humidy < humUp ) {
+      digitalWrite(pinReHum, LOW);
+    }
+  }
+
+  vTaskDelay(1);
+}
+
+void TaskMotion( void *pvParameters ) {
+  (void) pvParameters;
+  lcd.setCursor(0,0);
+  lcd.print("TEST");
+  while(true) {
+    
+  }
+  vTaskDelay(1);
+}
+
+void TaskData( void *pvParameters ) {
+  (void) pvParameters;
+
+  while(true) {
+  
+  
+  lcd.setCursor(0,1);
+  lcd.print("TEST");
+  
+  }
+  vTaskDelay(1);
+}
